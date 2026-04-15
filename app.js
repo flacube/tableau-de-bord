@@ -6,13 +6,11 @@ let monGraphique = null;
 let symboleActif = null;
 let echelleActuelle = CONFIG.echelleParDefaut;
 
-const YAHOO_BASE = "https://query1.finance.yahoo.com/v8/finance/chart/";
-const RSS_PROXY  = "https://api.rss2json.com/v1/api.json?rss_url=";
-const CORS_PROXIES = [
-  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-  url => `https://thingproxy.freeboard.io/fetch/${url}`
-];
+const RSS_PROXY = "https://api.rss2json.com/v1/api.json?rss_url=";
+// On utilise Yahoo Finance v7 via un proxy stable
+const YAHOO_BASE = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=";
+const YAHOO_CHART = "https://query1.finance.yahoo.com/v8/finance/chart/";
+const PROXY = "https://corsproxy.io/?";
 
 // ============================================================
 // INITIALISATION
@@ -43,16 +41,19 @@ function toggleMode() {
 // ============================================================
 // FETCH AVEC FALLBACK MULTI-PROXY
 // ============================================================
-async function fetchAvecProxy(yahooUrl) {
-  for (const proxy of CORS_PROXIES) {
+async function fetchAvecProxy(url) {
+  const proxies = [
+    `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    `https://thingproxy.freeboard.io/fetch/${url}`
+  ];
+  for (const p of proxies) {
     try {
-      const resp = await fetch(proxy(yahooUrl), { signal: AbortSignal.timeout(8000) });
+      const resp = await fetch(p, { signal: AbortSignal.timeout(10000) });
       if (!resp.ok) continue;
       const data = await resp.json();
-      if (data?.chart?.result) return data;
-    } catch (e) {
-      continue;
-    }
+      if (data?.chart?.result || data?.quoteResponse?.result) return data;
+    } catch { continue; }
   }
   return null;
 }
@@ -76,15 +77,15 @@ async function chargerTousLesTickers() {
 
 async function chargerTicker(ticker) {
   try {
-    const yahooUrl = YAHOO_BASE + ticker.symbole + "?interval=1d&range=5d";
-    const data     = await fetchAvecProxy(yahooUrl);
-    if (!data) { afficherTicker(ticker, null, null); return; }
-
-    const meta      = data.chart.result[0].meta;
-    const prix      = meta.regularMarketPrice;
-    const precedent = meta.chartPreviousClose;
-    const variation = ((prix - precedent) / precedent) * 100;
-
+    const url  = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker.symbole}&lang=fr`;
+    const data = await fetchAvecProxy(url);
+    if (!data?.quoteResponse?.result?.length) {
+      afficherTicker(ticker, null, null);
+      return;
+    }
+    const q         = data.quoteResponse.result[0];
+    const prix      = q.regularMarketPrice;
+    const variation = q.regularMarketChangePercent;
     afficherTicker(ticker, prix, variation);
   } catch (e) {
     afficherTicker(ticker, null, null);
@@ -168,7 +169,7 @@ function echelleVersParams(echelle) {
 async function dessinerGraphique(ticker, echelle) {
   try {
     const { interval, range } = echelleVersParams(echelle);
-    const yahooUrl = YAHOO_BASE + ticker.symbole + `?interval=${interval}&range=${range}`;
+    const yahooUrl = YAHOO_CHART + ticker.symbole + `?interval=${interval}&range=${range}`;
     const data     = await fetchAvecProxy(yahooUrl);
     if (!data) return;
 
