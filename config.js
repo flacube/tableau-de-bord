@@ -5,7 +5,7 @@
 const CONFIG = {
 
   // -- CLÉ API FINNHUB --
-  finnhubKey: "d7fo86hr01qpjqqlhlq0d7fo86hr01qpjqqlhlqg",
+  finnhubKey: "d7foanhr01qqb8rh16igd7foanhr01qqb8rh16j0",
 
   // -- INDICES ET CRYPTO --
   indices: [
