@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mon Tableau de Bord</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="config.js"></script>
+</head>
+<body class="dark">
+
+  <!-- EN-TÊTE -->
+  <header>
+    <div class="header-left">
+      <span class="logo">📊 Mon Tableau de Bord</span>
+    </div>
+    <div class="header-right">
+      <span id="lastUpdate">Dernière mise à jour : --</span>
+      <button id="toggleMode" onclick="toggleMode()">☀️ Mode clair</button>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- INDICES & CRYPTO -->
+    <section class="card full-width">
+      <h2>Indices & Crypto</h2>
+      <div class="ticker-grid" id="indicesGrid"></div>
+    </section>
+
+    <!-- ACTIONS DÉTENUES -->
+    <section class="card full-width">
+      <h2>Actions détenues</h2>
+      <div class="ticker-grid" id="actionsDeteGrid"></div>
+    </section>
+
+    <!-- ACTIONS À SURVEILLER -->
+    <section class="card full-width">
+      <h2>Actions à surveiller</h2>
+      <div class="ticker-grid" id="actionsSurvGrid"></div>
+    </section>
+
+    <!-- GRAPHIQUE -->
+    <section class="card full-width" id="graphSection" style="display:none">
+      <div class="graph-header">
+        <h2 id="graphTitle">Graphique</h2>
+        <div class="echelles">
+          <button onclick="changerEchelle('1J')">1J</button>
+          <button onclick="changerEchelle('1S')">1S</button>
+          <button onclick="changerEchelle('1M')" class="active">1M</button>
+          <button onclick="changerEchelle('3M')">3M</button>
+          <button onclick="changerEchelle('6M')">6M</button>
+          <button onclick="changerEchelle('1A')">1A</button>
+          <button onclick="changerEchelle('5A')">5A</button>
+          <button onclick="changerEchelle('10A')">10A</button>
+          <button onclick="changerEchelle('MAX')">MAX</button>
+        </div>
+      </div>
+      <canvas id="monGraphique"></canvas>
+    </section>
+
+    <!-- ACTUALITÉS -->
+    <div class="news-grid">
+
+      <section class="card">
+        <h2>📰 Actualité économique</h2>
+        <div class="news-list" id="newsEconomie">Chargement...</div>
+      </section>
+
+      <section class="card">
+        <h2>💻 Technologie</h2>
+        <div class="news-list" id="newsTech">Chargement...</div>
+      </section>
+
+      <section class="card">
+        <h2>🤖 Intelligence Artificielle</h2>
+        <div class="news-list" id="newsIA">Chargement...</div>
+      </section>
+
+    </div>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
