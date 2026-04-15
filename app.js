@@ -6,9 +6,13 @@ let monGraphique = null;
 let symboleActif = null;
 let echelleActuelle = CONFIG.echelleParDefaut;
 
-// -- PROXY POUR LES DONNÉES BOURSIÈRES --
-const YAHOO_PROXY = "https://query1.finance.yahoo.com/v8/finance/chart/";
-const RSS_PROXY   = "https://api.rss2json.com/v1/api.json?rss_url=";
+const YAHOO_BASE = "https://query1.finance.yahoo.com/v8/finance/chart/";
+const RSS_PROXY  = "https://api.rss2json.com/v1/api.json?rss_url=";
+const CORS_PROXIES = [
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  url => `https://thingproxy.freeboard.io/fetch/${url}`
+];
 
 // ============================================================
 // INITIALISATION
@@ -37,6 +41,23 @@ function toggleMode() {
 }
 
 // ============================================================
+// FETCH AVEC FALLBACK MULTI-PROXY
+// ============================================================
+async function fetchAvecProxy(yahooUrl) {
+  for (const proxy of CORS_PROXIES) {
+    try {
+      const resp = await fetch(proxy(yahooUrl), { signal: AbortSignal.timeout(8000) });
+      if (!resp.ok) continue;
+      const data = await resp.json();
+      if (data?.chart?.result) return data;
+    } catch (e) {
+      continue;
+    }
+  }
+  return null;
+}
+
+// ============================================================
 // CHARGEMENT DES TICKERS
 // ============================================================
 async function chargerTousLesTickers() {
@@ -55,17 +76,14 @@ async function chargerTousLesTickers() {
 
 async function chargerTicker(ticker) {
   try {
-    const url = `https://corsproxy.io/?${encodeURIComponent(
-      YAHOO_PROXY + ticker.symbole + "?interval=1d&range=5d"
-    )}`;
-    const resp = await fetch(url);
-    const data = await resp.json();
-    const result = data.chart.result[0];
-    const meta   = result.meta;
+    const yahooUrl = YAHOO_BASE + ticker.symbole + "?interval=1d&range=5d";
+    const data     = await fetchAvecProxy(yahooUrl);
+    if (!data) { afficherTicker(ticker, null, null); return; }
 
-    const prix       = meta.regularMarketPrice;
-    const precedent  = meta.chartPreviousClose;
-    const variation  = ((prix - precedent) / precedent) * 100;
+    const meta      = data.chart.result[0].meta;
+    const prix      = meta.regularMarketPrice;
+    const precedent = meta.chartPreviousClose;
+    const variation = ((prix - precedent) / precedent) * 100;
 
     afficherTicker(ticker, prix, variation);
   } catch (e) {
@@ -74,7 +92,6 @@ async function chargerTicker(ticker) {
 }
 
 function afficherTicker(ticker, prix, variation) {
-  // Chercher le bon conteneur
   let conteneur = null;
   if (CONFIG.indices.find(t => t.symbole === ticker.symbole))
     conteneur = document.getElementById("indicesGrid");
@@ -83,24 +100,28 @@ function afficherTicker(ticker, prix, variation) {
   else
     conteneur = document.getElementById("actionsSurvGrid");
 
-  // Créer ou mettre à jour l'élément
-  let el = document.getElementById("ticker-" + ticker.symbole.replace(/[^a-z0-9]/gi, "_"));
+  const idSafe = "ticker-" + ticker.symbole.replace(/[^a-z0-9]/gi, "_");
+  let el = document.getElementById(idSafe);
   if (!el) {
     el = document.createElement("div");
     el.className = "ticker-item";
-    el.id = "ticker-" + ticker.symbole.replace(/[^a-z0-9]/gi, "_");
+    el.id = idSafe;
     el.onclick = () => ouvrirGraphique(ticker);
     conteneur.appendChild(el);
   }
 
   const classeVar = variation === null ? "neutre" : variation >= 0 ? "positif" : "negatif";
   const fleche    = variation === null ? "" : variation >= 0 ? "▲" : "▼";
-  const prixAff   = prix !== null ? prix.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "--";
-  const varAff    = variation !== null ? fleche + " " + Math.abs(variation).toFixed(2) + "%" : "--";
+  const prixAff   = prix !== null
+    ? prix.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : "--";
+  const varAff    = variation !== null
+    ? fleche + " " + Math.abs(variation).toFixed(2) + "%"
+    : "--";
 
   el.innerHTML = `
     <div class="ticker-nom">${ticker.nom}</div>
-    <div class="ticker-prix">${prixAff}</div>
+    <div class="ticker-prix ${classeVar}">${prixAff}</div>
     <div class="ticker-variation ${classeVar}">${varAff}</div>
   `;
 }
@@ -114,10 +135,8 @@ async function ouvrirGraphique(ticker) {
   document.getElementById("graphTitle").textContent = ticker.nom;
   document.getElementById("graphSection").scrollIntoView({ behavior: "smooth" });
 
-  // Mettre à jour le ticker sélectionné visuellement
   document.querySelectorAll(".ticker-item").forEach(el => el.classList.remove("selected"));
-  const id = "ticker-" + ticker.symbole.replace(/[^a-z0-9]/gi, "_");
-  const el = document.getElementById(id);
+  const el = document.getElementById("ticker-" + ticker.symbole.replace(/[^a-z0-9]/gi, "_"));
   if (el) el.classList.add("selected");
 
   await dessinerGraphique(ticker, echelleActuelle);
@@ -149,43 +168,37 @@ function echelleVersParams(echelle) {
 async function dessinerGraphique(ticker, echelle) {
   try {
     const { interval, range } = echelleVersParams(echelle);
-    const url = `https://corsproxy.io/?${encodeURIComponent(
-      YAHOO_PROXY + ticker.symbole + `?interval=${interval}&range=${range}`
-    )}`;
-    const resp   = await fetch(url);
-    const data   = await resp.json();
-    const result = data.chart.result[0];
+    const yahooUrl = YAHOO_BASE + ticker.symbole + `?interval=${interval}&range=${range}`;
+    const data     = await fetchAvecProxy(yahooUrl);
+    if (!data) return;
 
+    const result     = data.chart.result[0];
     const timestamps = result.timestamp;
     const prix       = result.indicators.quote[0].close;
 
     const labels = timestamps.map(ts => {
       const d = new Date(ts * 1000);
-      if (["1J"].includes(echelle)) return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-      if (["1S", "1M", "3M"].includes(echelle)) return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
+      if (echelle === "1J")
+        return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+      if (["1S", "1M", "3M"].includes(echelle))
+        return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
       return d.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" });
     });
 
-    const isDark    = document.body.classList.contains("dark");
-    const couleurLigne  = "#3d8ef8";
+    const isDark       = document.body.classList.contains("dark");
     const couleurGrille = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)";
     const couleurTexte  = isDark ? "#8892a4" : "#5a6478";
 
-    const canvas = document.getElementById("monGraphique");
+    if (monGraphique) { monGraphique.destroy(); monGraphique = null; }
 
-    if (monGraphique) {
-      monGraphique.destroy();
-      monGraphique = null;
-    }
-
-    monGraphique = new Chart(canvas, {
+    monGraphique = new Chart(document.getElementById("monGraphique"), {
       type: "line",
       data: {
         labels,
         datasets: [{
           label: ticker.nom,
           data: prix,
-          borderColor: couleurLigne,
+          borderColor: "#3d8ef8",
           backgroundColor: "rgba(61,142,248,0.08)",
           borderWidth: 2,
           pointRadius: 0,
@@ -200,7 +213,9 @@ async function dessinerGraphique(ticker, echelle) {
           legend: { display: false },
           tooltip: {
             callbacks: {
-              label: ctx => ctx.parsed.y.toLocaleString("fr-FR", { minimumFractionDigits: 2 }) + " €"
+              label: ctx => ctx.parsed.y !== null
+                ? ctx.parsed.y.toLocaleString("fr-FR", { minimumFractionDigits: 2 }) + " €"
+                : ""
             }
           }
         },
@@ -242,11 +257,10 @@ async function chargerFlux(sources, conteneurId) {
 
   for (const source of sources) {
     try {
-      const url  = RSS_PROXY + encodeURIComponent(source.url);
-      const resp = await fetch(url);
+      const resp = await fetch(RSS_PROXY + encodeURIComponent(source.url));
       const data = await resp.json();
       if (data.items) {
-        data.items.slice(0, 5).forEach(item => {
+        data.items.slice(0, 8).forEach(item => {
           articles.push({
             titre:  item.title,
             lien:   item.link,
@@ -260,22 +274,50 @@ async function chargerFlux(sources, conteneurId) {
     }
   }
 
-  // Trier par date décroissante
   articles.sort((a, b) => new Date(b.date) - new Date(a.date));
-  articles = articles.slice(0, 15);
 
   if (articles.length === 0) {
     conteneur.innerHTML = "<p style='color:var(--text-secondary);font-size:0.85rem'>Aucun article disponible.</p>";
     return;
   }
 
-  conteneur.innerHTML = articles.map(a => `
+  const visibles = articles.slice(0, 5);
+  const cachees  = articles.slice(5);
+
+  const htmlVisibles = visibles.map(a => renderArticle(a)).join("");
+  const htmlCachees  = cachees.length > 0
+    ? `<div class="news-more" id="more-${conteneurId}" style="display:none">
+        ${cachees.map(a => renderArticle(a)).join("")}
+       </div>
+       <button class="btn-more" onclick="afficherPlus('${conteneurId}')">
+         ▼ Afficher plus (${cachees.length})
+       </button>`
+    : "";
+
+  conteneur.innerHTML = htmlVisibles + htmlCachees;
+}
+
+function afficherPlus(conteneurId) {
+  const more = document.getElementById("more-" + conteneurId);
+  const btn  = more.nextElementSibling;
+  if (more.style.display === "none") {
+    more.style.display = "block";
+    btn.textContent = "▲ Afficher moins";
+  } else {
+    more.style.display = "none";
+    const total = more.querySelectorAll(".news-item").length;
+    btn.textContent = `▼ Afficher plus (${total})`;
+  }
+}
+
+function renderArticle(a) {
+  return `
     <div class="news-item">
       <div class="news-source">${a.source}</div>
       <a class="news-titre" href="${a.lien}" target="_blank" rel="noopener">${a.titre}</a>
       <div class="news-date">${formaterDate(a.date)}</div>
     </div>
-  `).join("");
+  `;
 }
 
 function formaterDate(dateStr) {
