@@ -287,3 +287,18 @@ main {
 @media (max-width: 480px) {
   .ticker-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* BOUTON AFFICHER PLUS */
+.btn-more {
+  margin-top: 10px;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  padding: 6px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  width: 100%;
+  transition: all 0.2s;
+}
+.btn-more:hover { background: var(--accent); color: #fff; }
