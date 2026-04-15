@@ -1,64 +1,65 @@
 // ============================================================
 // FICHIER DE CONFIGURATION - TABLEAU DE BORD FINANCIER
-// Pour ajouter une action : ajoutez une ligne { nom: "NOM", symbole: "SYMBOLE" }
 // ============================================================
 
 const CONFIG = {
 
+  // -- CLÉ API FINNHUB --
+  finnhubKey: "d7fo86hr01qpjqqlhlq0d7fo86hr01qpjqqlhlqg",
+
   // -- INDICES ET CRYPTO --
   indices: [
-    { nom: "CAC 40",  symbole: "^FCHI" },
-    { nom: "Dow Jones", symbole: "^DJI" },
-    { nom: "S&P 500", symbole: "^GSPC" },
-    { nom: "Bitcoin", symbole: "BTC-USD" }
+    { nom: "CAC 40",    symbole: "^FCHI",   finnhub: "^FCHI"        },
+    { nom: "Dow Jones", symbole: "^DJI",    finnhub: "^DJI"         },
+    { nom: "S&P 500",   symbole: "^GSPC",   finnhub: "^GSPC"        },
+    { nom: "Bitcoin",   symbole: "BTC-USD", finnhub: "BINANCE:BTCUSDT" }
   ],
 
   // -- ACTIONS DÉTENUES --
   actionsDetenues: [
-    { nom: "AXA",        symbole: "CS.PA" },
-    { nom: "BNP Paribas",symbole: "BNP.PA" },
-    { nom: "Engie",      symbole: "ENGI.PA" },
-    { nom: "FDJ",        symbole: "FDJ.PA" },
-    { nom: "Michelin",   symbole: "ML.PA" },
-    { nom: "Orange",     symbole: "ORA.PA" },
-    { nom: "TF1",        symbole: "TFI.PA" },
-    { nom: "Ubisoft",    symbole: "UBI.PA" }
+    { nom: "AXA",         symbole: "CS.PA",  finnhub: "EURONEXT:CS"   },
+    { nom: "BNP Paribas", symbole: "BNP.PA", finnhub: "EURONEXT:BNP"  },
+    { nom: "Engie",       symbole: "ENGI.PA",finnhub: "EURONEXT:ENGI" },
+    { nom: "FDJ",         symbole: "FDJ.PA", finnhub: "EURONEXT:FDJ"  },
+    { nom: "Michelin",    symbole: "ML.PA",  finnhub: "EURONEXT:ML"   },
+    { nom: "Orange",      symbole: "ORA.PA", finnhub: "EURONEXT:ORA"  },
+    { nom: "TF1",         symbole: "TFI.PA", finnhub: "EURONEXT:TFI"  },
+    { nom: "Ubisoft",     symbole: "UBI.PA", finnhub: "EURONEXT:UBI"  }
   ],
 
   // -- ACTIONS À SURVEILLER --
   actionsSurveiller: [
-    { nom: "Air Liquide",      symbole: "AI.PA" },
-    { nom: "Airbus",           symbole: "AIR.PA" },
-    { nom: "Amundi",           symbole: "AMUN.PA" },
-    { nom: "Dassault",         symbole: "DSY.PA" },
-    { nom: "Eiffage",          symbole: "FGR.PA" },
-    { nom: "Pernod Ricard",    symbole: "RI.PA" },
-    { nom: "Société Générale", symbole: "GLE.PA" },
-    { nom: "Thales",           symbole: "HO.PA" },
-    { nom: "TotalEnergies",    symbole: "TTE.PA" },
-    { nom: "Vicat",            symbole: "VCT.PA" },
-    { nom: "Vinci",            symbole: "DG.PA" }
+    { nom: "Air Liquide",      symbole: "AI.PA",  finnhub: "EURONEXT:AI"   },
+    { nom: "Airbus",           symbole: "AIR.PA", finnhub: "EURONEXT:AIR"  },
+    { nom: "Amundi",           symbole: "AMUN.PA",finnhub: "EURONEXT:AMUN" },
+    { nom: "Dassault",         symbole: "DSY.PA", finnhub: "EURONEXT:DSY"  },
+    { nom: "Eiffage",          symbole: "FGR.PA", finnhub: "EURONEXT:FGR"  },
+    { nom: "Pernod Ricard",    symbole: "RI.PA",  finnhub: "EURONEXT:RI"   },
+    { nom: "Société Générale", symbole: "GLE.PA", finnhub: "EURONEXT:GLE"  },
+    { nom: "Thales",           symbole: "HO.PA",  finnhub: "EURONEXT:HO"   },
+    { nom: "TotalEnergies",    symbole: "TTE.PA", finnhub: "EURONEXT:TTE"  },
+    { nom: "Vicat",            symbole: "VCT.PA", finnhub: "EURONEXT:VCT"  },
+    { nom: "Vinci",            symbole: "DG.PA",  finnhub: "EURONEXT:DG"   }
   ],
 
   // -- FLUX RSS ACTUALITÉS --
-  // (via rss2json.com - proxy gratuit)
   flux: {
     economie: [
       { nom: "Les Échos",    url: "https://feeds.lesechos.fr/rss/rss_finance.xml" },
-      { nom: "BFM Bourse",   url: "https://www.bfmtv.com/rss/economie/bourse/" },
-      { nom: "Le Monde Éco", url: "https://www.lemonde.fr/economie/rss_full.xml" }
+      { nom: "BFM Bourse",   url: "https://www.bfmtv.com/rss/economie/bourse/"    },
+      { nom: "Le Monde Éco", url: "https://www.lemonde.fr/economie/rss_full.xml"  }
     ],
     technologie: [
-      { nom: "01net",        url: "https://www.01net.com/feed/" },
-      { nom: "Numerama",     url: "https://www.numerama.com/feed/" }
+      { nom: "01net",    url: "https://www.01net.com/feed/"        },
+      { nom: "Numerama", url: "https://www.numerama.com/feed/"     }
     ],
     ia: [
       { nom: "L'Usine Digitale", url: "https://www.usine-digitale.fr/rss/all.xml" },
-      { nom: "Silicon.fr",       url: "https://www.silicon.fr/feed" }
+      { nom: "Silicon.fr",       url: "https://www.silicon.fr/feed"               }
     ]
   },
 
   // -- PARAMÈTRES GÉNÉRAUX --
   actualisationMinutes: 15,
-  echelleParDefaut: "1M" // 1J, 1S, 1M, 3M, 6M, 1A, 5A, 10A, MAX
+  echelleParDefaut: "1M"
 };
