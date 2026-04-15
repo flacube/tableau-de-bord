@@ -6,11 +6,8 @@ let monGraphique = null;
 let symboleActif = null;
 let echelleActuelle = CONFIG.echelleParDefaut;
 
-const RSS_PROXY = "https://api.rss2json.com/v1/api.json?rss_url=";
-// On utilise Yahoo Finance v7 via un proxy stable
-const YAHOO_BASE = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=";
-const YAHOO_CHART = "https://query1.finance.yahoo.com/v8/finance/chart/";
-const PROXY = "https://corsproxy.io/?";
+const FINNHUB_BASE  = "https://finnhub.io/api/v1";
+const RSS_PROXY     = "https://api.rss2json.com/v1/api.json?rss_url=";
 
 // ============================================================
 // INITIALISATION
@@ -39,26 +36,6 @@ function toggleMode() {
 }
 
 // ============================================================
-// FETCH AVEC FALLBACK MULTI-PROXY
-// ============================================================
-async function fetchAvecProxy(url) {
-  const proxies = [
-    `https://corsproxy.io/?${encodeURIComponent(url)}`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    `https://thingproxy.freeboard.io/fetch/${url}`
-  ];
-  for (const p of proxies) {
-    try {
-      const resp = await fetch(p, { signal: AbortSignal.timeout(10000) });
-      if (!resp.ok) continue;
-      const data = await resp.json();
-      if (data?.chart?.result || data?.quoteResponse?.result) return data;
-    } catch { continue; }
-  }
-  return null;
-}
-
-// ============================================================
 // CHARGEMENT DES TICKERS
 // ============================================================
 async function chargerTousLesTickers() {
@@ -68,24 +45,37 @@ async function chargerTousLesTickers() {
     ...CONFIG.actionsSurveiller
   ];
 
-  await Promise.all(toutes.map(t => chargerTicker(t)));
+  // Finnhub limite à 60 req/min - on espace légèrement les appels
+  for (const t of toutes) {
+    await chargerTicker(t);
+    await pause(300);
+  }
 
   const now = new Date();
   document.getElementById("lastUpdate").textContent =
     "Dernière mise à jour : " + now.toLocaleTimeString("fr-FR");
 }
 
+function pause(ms) {
+  return new Promise(res => setTimeout(res, ms));
+}
+
 async function chargerTicker(ticker) {
   try {
-    const url  = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker.symbole}&lang=fr`;
-    const data = await fetchAvecProxy(url);
-    if (!data?.quoteResponse?.result?.length) {
+    const url  = `${FINNHUB_BASE}/quote?symbol=${ticker.finnhub}&token=${CONFIG.finnhubKey}`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+
+    // Finnhub retourne : c = prix actuel, pc = clôture précédente
+    if (!data || data.c === 0) {
       afficherTicker(ticker, null, null);
       return;
     }
-    const q         = data.quoteResponse.result[0];
-    const prix      = q.regularMarketPrice;
-    const variation = q.regularMarketChangePercent;
+
+    const prix      = data.c;
+    const precedent = data.pc;
+    const variation = ((prix - precedent) / precedent) * 100;
+
     afficherTicker(ticker, prix, variation);
   } catch (e) {
     afficherTicker(ticker, null, null);
@@ -128,7 +118,7 @@ function afficherTicker(ticker, prix, variation) {
 }
 
 // ============================================================
-// GRAPHIQUE
+// GRAPHIQUE - utilise Finnhub candles
 // ============================================================
 async function ouvrirGraphique(ticker) {
   symboleActif = ticker;
@@ -152,32 +142,34 @@ async function changerEchelle(echelle) {
 }
 
 function echelleVersParams(echelle) {
-  const map = {
-    "1J":  { interval: "5m",  range: "1d"  },
-    "1S":  { interval: "1h",  range: "5d"  },
-    "1M":  { interval: "1d",  range: "1mo" },
-    "3M":  { interval: "1d",  range: "3mo" },
-    "6M":  { interval: "1wk", range: "6mo" },
-    "1A":  { interval: "1wk", range: "1y"  },
-    "5A":  { interval: "1mo", range: "5y"  },
-    "10A": { interval: "1mo", range: "10y" },
-    "MAX": { interval: "3mo", range: "max" }
+  const now  = Math.floor(Date.now() / 1000);
+  const map  = {
+    "1J":  { resolution: "5",  from: now - 86400        },
+    "1S":  { resolution: "60", from: now - 7 * 86400    },
+    "1M":  { resolution: "D",  from: now - 30 * 86400   },
+    "3M":  { resolution: "D",  from: now - 90 * 86400   },
+    "6M":  { resolution: "W",  from: now - 180 * 86400  },
+    "1A":  { resolution: "W",  from: now - 365 * 86400  },
+    "5A":  { resolution: "M",  from: now - 5*365*86400  },
+    "10A": { resolution: "M",  from: now - 10*365*86400 },
+    "MAX": { resolution: "M",  from: now - 20*365*86400 }
   };
-  return map[echelle] || map["1M"];
+  return { ...map[echelle], to: now };
 }
 
 async function dessinerGraphique(ticker, echelle) {
   try {
-    const { interval, range } = echelleVersParams(echelle);
-    const yahooUrl = YAHOO_CHART + ticker.symbole + `?interval=${interval}&range=${range}`;
-    const data     = await fetchAvecProxy(yahooUrl);
-    if (!data) return;
+    const { resolution, from, to } = echelleVersParams(echelle);
+    const url  = `${FINNHUB_BASE}/stock/candle?symbol=${ticker.finnhub}&resolution=${resolution}&from=${from}&to=${to}&token=${CONFIG.finnhubKey}`;
+    const resp = await fetch(url);
+    const data = await resp.json();
 
-    const result     = data.chart.result[0];
-    const timestamps = result.timestamp;
-    const prix       = result.indicators.quote[0].close;
+    if (!data || data.s === "no_data" || !data.t) {
+      console.warn("Pas de données graphique pour", ticker.nom);
+      return;
+    }
 
-    const labels = timestamps.map(ts => {
+    const labels = data.t.map(ts => {
       const d = new Date(ts * 1000);
       if (echelle === "1J")
         return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
@@ -186,7 +178,7 @@ async function dessinerGraphique(ticker, echelle) {
       return d.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" });
     });
 
-    const isDark       = document.body.classList.contains("dark");
+    const isDark        = document.body.classList.contains("dark");
     const couleurGrille = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)";
     const couleurTexte  = isDark ? "#8892a4" : "#5a6478";
 
@@ -198,7 +190,7 @@ async function dessinerGraphique(ticker, echelle) {
         labels,
         datasets: [{
           label: ticker.nom,
-          data: prix,
+          data: data.c,
           borderColor: "#3d8ef8",
           backgroundColor: "rgba(61,142,248,0.08)",
           borderWidth: 2,
@@ -215,7 +207,7 @@ async function dessinerGraphique(ticker, echelle) {
           tooltip: {
             callbacks: {
               label: ctx => ctx.parsed.y !== null
-                ? ctx.parsed.y.toLocaleString("fr-FR", { minimumFractionDigits: 2 }) + " €"
+                ? ctx.parsed.y.toLocaleString("fr-FR", { minimumFractionDigits: 2 })
                 : ""
             }
           }
