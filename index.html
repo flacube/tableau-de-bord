@@ -41,7 +41,7 @@
       <div class="ticker-grid" id="actionsSurvGrid"></div>
     </section>
 
-    <!-- GRAPHIQUE -->
+    <!-- GRAPHIQUE PRINCIPAL -->
     <section class="card full-width" id="graphSection" style="display:none">
       <div class="graph-header">
         <h2 id="graphTitle">Graphique</h2>
@@ -57,7 +57,26 @@
           <button onclick="changerEchelle('MAX')">MAX</button>
         </div>
       </div>
-      <canvas id="monGraphique"></canvas>
+
+      <!-- BOUTONS INDICATEURS -->
+      <div class="indicateurs-toolbar">
+        <span class="toolbar-label">Indicateurs :</span>
+        <button class="ind-btn" id="btnBollinger" onclick="toggleIndicateur('bollinger')">Bollinger</button>
+        <button class="ind-btn" id="btnMM" onclick="toggleIndicateur('mm')">MM20</button>
+        <button class="ind-btn active" id="btnStoch" onclick="toggleIndicateur('stoch')">Stoch RSI</button>
+      </div>
+
+      <!-- CANVAS PRIX -->
+      <div class="graph-container">
+        <canvas id="graphPrix"></canvas>
+      </div>
+
+      <!-- PANNEAU STOCHASTIQUE RSI -->
+      <div class="graph-container stoch-container" id="stochPanel">
+        <div class="stoch-label">Stochastique RSI</div>
+        <canvas id="graphStoch"></canvas>
+      </div>
+
     </section>
 
     <!-- ACTUALITÉS -->
