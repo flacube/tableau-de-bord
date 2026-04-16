@@ -6,8 +6,7 @@ let monGraphique = null;
 let symboleActif = null;
 let echelleActuelle = CONFIG.echelleParDefaut;
 
-const FINNHUB_BASE = "https://finnhub.io/api/v1";
-const RSS_PROXY    = "https://api.rss2json.com/v1/api.json?rss_url=";
+const RSS_PROXY = "https://api.rss2json.com/v1/api.json?rss_url=";
 
 // ============================================================
 // INITIALISATION
@@ -45,33 +44,27 @@ async function chargerTousLesTickers() {
     ...CONFIG.actionsSurveiller
   ];
 
-  for (const t of toutes) {
-    await chargerTicker(t);
-    await pause(300);
-  }
+  await Promise.all(toutes.map(t => chargerTicker(t)));
 
   const now = new Date();
   document.getElementById("lastUpdate").textContent =
     "Dernière mise à jour : " + now.toLocaleTimeString("fr-FR");
 }
 
-function pause(ms) {
-  return new Promise(res => setTimeout(res, ms));
-}
-
 async function chargerTicker(ticker) {
   try {
-    const url  = `${FINNHUB_BASE}/quote?symbol=${ticker.symbole}&token=${CONFIG.finnhubKey}`;
+    const url  = `${CONFIG.apiUrl}?symbol=${ticker.symbole}&interval=1d&range=1d`;
     const resp = await fetch(url);
     const data = await resp.json();
 
-    if (!data || data.c === 0) {
+    const meta      = data?.chart?.result?.[0]?.meta;
+    if (!meta || !meta.regularMarketPrice) {
       afficherTicker(ticker, null, null);
       return;
     }
 
-    const prix      = data.c;
-    const precedent = data.pc;
+    const prix      = meta.regularMarketPrice;
+    const precedent = meta.chartPreviousClose;
     const variation = ((prix - precedent) / precedent) * 100;
 
     afficherTicker(ticker, prix, variation);
@@ -140,34 +133,37 @@ async function changerEchelle(echelle) {
 }
 
 function echelleVersParams(echelle) {
-  const now = Math.floor(Date.now() / 1000);
   const map = {
-    "1J":  { resolution: "5",  from: now - 86400         },
-    "1S":  { resolution: "60", from: now - 7 * 86400     },
-    "1M":  { resolution: "D",  from: now - 30 * 86400    },
-    "3M":  { resolution: "D",  from: now - 90 * 86400    },
-    "6M":  { resolution: "W",  from: now - 180 * 86400   },
-    "1A":  { resolution: "W",  from: now - 365 * 86400   },
-    "5A":  { resolution: "M",  from: now - 5*365*86400   },
-    "10A": { resolution: "M",  from: now - 10*365*86400  },
-    "MAX": { resolution: "M",  from: now - 20*365*86400  }
+    "1J":  { interval: "5m",  range: "1d"  },
+    "1S":  { interval: "1h",  range: "5d"  },
+    "1M":  { interval: "1d",  range: "1mo" },
+    "3M":  { interval: "1d",  range: "3mo" },
+    "6M":  { interval: "1wk", range: "6mo" },
+    "1A":  { interval: "1wk", range: "1y"  },
+    "5A":  { interval: "1mo", range: "5y"  },
+    "10A": { interval: "1mo", range: "10y" },
+    "MAX": { interval: "3mo", range: "max" }
   };
-  return { ...map[echelle], to: now };
+  return map[echelle] || map["1M"];
 }
 
 async function dessinerGraphique(ticker, echelle) {
   try {
-    const { resolution, from, to } = echelleVersParams(echelle);
-    const url  = `${FINNHUB_BASE}/stock/candle?symbol=${ticker.symbole}&resolution=${resolution}&from=${from}&to=${to}&token=${CONFIG.finnhubKey}`;
+    const { interval, range } = echelleVersParams(echelle);
+    const url  = `${CONFIG.apiUrl}?symbol=${ticker.symbole}&interval=${interval}&range=${range}`;
     const resp = await fetch(url);
     const data = await resp.json();
 
-    if (!data || data.s === "no_data" || !data.t) {
+    const result = data?.chart?.result?.[0];
+    if (!result || !result.timestamp) {
       console.warn("Pas de données graphique pour", ticker.nom);
       return;
     }
 
-    const labels = data.t.map(ts => {
+    const timestamps = result.timestamp;
+    const prix       = result.indicators.quote[0].close;
+
+    const labels = timestamps.map(ts => {
       const d = new Date(ts * 1000);
       if (echelle === "1J")
         return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
@@ -188,7 +184,7 @@ async function dessinerGraphique(ticker, echelle) {
         labels,
         datasets: [{
           label: ticker.nom,
-          data: data.c,
+          data: prix,
           borderColor: "#3d8ef8",
           backgroundColor: "rgba(61,142,248,0.08)",
           borderWidth: 2,
