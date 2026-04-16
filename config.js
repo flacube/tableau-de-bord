@@ -4,15 +4,15 @@
 
 const CONFIG = {
 
-  // -- CLÉ API FINNHUB --
-  finnhubKey: "d7fo86hr01qpjqqlhlq0d7fo86hr01qpjqqlhlqg",
+  // -- URL DU SERVEUR RELAIS --
+  apiUrl: "https://dashboard-api-pi-six.vercel.app/api/yahoo",
 
   // -- INDICES ET CRYPTO --
   indices: [
-    { nom: "CAC 40",    symbole: "^FCHI"        },
-    { nom: "Dow Jones", symbole: "^DJI"          },
-    { nom: "S&P 500",   symbole: "^GSPC"         },
-    { nom: "Bitcoin",   symbole: "BINANCE:BTCUSDT" }
+    { nom: "CAC 40",    symbole: "^FCHI"    },
+    { nom: "Dow Jones", symbole: "^DJI"     },
+    { nom: "S&P 500",   symbole: "^GSPC"    },
+    { nom: "Bitcoin",   symbole: "BTC-USD"  }
   ],
 
   // -- ACTIONS DÉTENUES --
