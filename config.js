@@ -20,7 +20,7 @@ const CONFIG = {
     { nom: "AXA",         symbole: "CS.PA"   },
     { nom: "BNP Paribas", symbole: "BNP.PA"  },
     { nom: "Engie",       symbole: "ENGI.PA" },
-    { nom: "FDJ",         symbole: "FDJ.PA"  },
+    { nom: "FDJ",         symbole: "FDJU.PA"  },
     { nom: "Michelin",    symbole: "ML.PA"   },
     { nom: "Orange",      symbole: "ORA.PA"  },
     { nom: "TF1",         symbole: "TFI.PA"  },
