@@ -2,9 +2,18 @@
 // APP.JS - LOGIQUE PRINCIPALE DU TABLEAU DE BORD
 // ============================================================
 
-let monGraphique = null;
-let symboleActif = null;
+let graphPrix  = null;
+let graphStoch = null;
+let symboleActif   = null;
 let echelleActuelle = CONFIG.echelleParDefaut;
+let donneesActuelles = null;
+
+// État des indicateurs
+const indicateurs = {
+  bollinger: false,
+  mm:        false,
+  stoch:     true
+};
 
 const RSS_PROXY = "https://api.rss2json.com/v1/api.json?rss_url=";
 
@@ -31,20 +40,45 @@ function toggleMode() {
     body.classList.replace("light", "dark");
     btn.textContent = "☀️ Mode clair";
   }
-  if (monGraphique) mettreAJourCouleurGraphique();
+  if (donneesActuelles) rendreGraphiques(donneesActuelles);
 }
 
 // ============================================================
-// CHARGEMENT DES TICKERS
+// INDICATEURS ON/OFF
+// ============================================================
+function toggleIndicateur(nom) {
+  indicateurs[nom] = !indicateurs[nom];
+  const btn = document.getElementById(
+    nom === "bollinger" ? "btnBollinger" : nom === "mm" ? "btnMM" : "btnStoch"
+  );
+  btn.classList.toggle("active", indicateurs[nom]);
+
+  if (nom === "stoch") {
+    document.getElementById("stochPanel").style.display =
+      indicateurs.stoch ? "block" : "none";
+  }
+
+  if (donneesActuelles) rendreGraphiques(donneesActuelles);
+}
+
+// ============================================================
+// CHARGEMENT DES TICKERS (trié par ordre alphabétique)
 // ============================================================
 async function chargerTousLesTickers() {
-  const toutes = [
-    ...CONFIG.indices,
-    ...CONFIG.actionsDetenues,
-    ...CONFIG.actionsSurveiller
-  ];
+  const indices  = [...CONFIG.indices].sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
+  const detenues = [...CONFIG.actionsDetenues].sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
+  const surveiller = [...CONFIG.actionsSurveiller].sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
 
-  await Promise.all(toutes.map(t => chargerTicker(t)));
+  // Vider les grilles
+  document.getElementById("indicesGrid").innerHTML    = "";
+  document.getElementById("actionsDeteGrid").innerHTML = "";
+  document.getElementById("actionsSurvGrid").innerHTML = "";
+
+  await Promise.all([
+    ...indices.map(t => chargerTicker(t)),
+    ...detenues.map(t => chargerTicker(t)),
+    ...surveiller.map(t => chargerTicker(t))
+  ]);
 
   const now = new Date();
   document.getElementById("lastUpdate").textContent =
@@ -57,7 +91,7 @@ async function chargerTicker(ticker) {
     const resp = await fetch(url);
     const data = await resp.json();
 
-    const meta      = data?.chart?.result?.[0]?.meta;
+    const meta = data?.chart?.result?.[0]?.meta;
     if (!meta || !meta.regularMarketPrice) {
       afficherTicker(ticker, null, null);
       return;
@@ -66,7 +100,6 @@ async function chargerTicker(ticker) {
     const prix      = meta.regularMarketPrice;
     const precedent = meta.chartPreviousClose;
     const variation = ((prix - precedent) / precedent) * 100;
-
     afficherTicker(ticker, prix, variation);
   } catch (e) {
     afficherTicker(ticker, null, null);
@@ -115,6 +148,7 @@ async function ouvrirGraphique(ticker) {
   symboleActif = ticker;
   document.getElementById("graphSection").style.display = "block";
   document.getElementById("graphTitle").textContent = ticker.nom;
+  document.getElementById("stochPanel").style.display = indicateurs.stoch ? "block" : "none";
   document.getElementById("graphSection").scrollIntoView({ behavior: "smooth" });
 
   document.querySelectorAll(".ticker-item").forEach(el => el.classList.remove("selected"));
@@ -155,56 +189,179 @@ async function dessinerGraphique(ticker, echelle) {
     const data = await resp.json();
 
     const result = data?.chart?.result?.[0];
-    if (!result || !result.timestamp) {
-      console.warn("Pas de données graphique pour", ticker.nom);
-      return;
-    }
+    if (!result || !result.timestamp) return;
 
-    const timestamps = result.timestamp;
-    const prix       = result.indicators.quote[0].close;
+    donneesActuelles = { result, echelle };
+    rendreGraphiques({ result, echelle });
+  } catch (e) {
+    console.error("Erreur graphique :", e);
+  }
+}
 
-    const labels = timestamps.map(ts => {
-      const d = new Date(ts * 1000);
-      if (echelle === "1J")
-        return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-      if (["1S", "1M", "3M"].includes(echelle))
-        return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
-      return d.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" });
+function rendreGraphiques({ result, echelle }) {
+  const timestamps = result.timestamp;
+  const prix       = result.indicators.quote[0].close;
+
+  const labels = timestamps.map(ts => {
+    const d = new Date(ts * 1000);
+    if (echelle === "1J")
+      return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    if (["1S", "1M", "3M"].includes(echelle))
+      return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
+    return d.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" });
+  });
+
+  const isDark        = document.body.classList.contains("dark");
+  const couleurGrille = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)";
+  const couleurTexte  = isDark ? "#8892a4" : "#5a6478";
+
+  // -- DATASETS PANNEAU PRINCIPAL --
+  const datasets = [{
+    label: "Prix",
+    data: prix,
+    borderColor: "#3d8ef8",
+    backgroundColor: "rgba(61,142,248,0.08)",
+    borderWidth: 2,
+    pointRadius: 0,
+    tension: 0.3,
+    fill: true,
+    order: 3
+  }];
+
+  // Moyenne Mobile 20
+  if (indicateurs.mm) {
+    const mm20 = calculerMM(prix, 20);
+    datasets.push({
+      label: "MM20",
+      data: mm20,
+      borderColor: "#f5a623",
+      borderWidth: 1.5,
+      pointRadius: 0,
+      tension: 0.3,
+      fill: false,
+      order: 2
     });
+  }
 
-    const isDark        = document.body.classList.contains("dark");
-    const couleurGrille = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)";
-    const couleurTexte  = isDark ? "#8892a4" : "#5a6478";
+  // Bandes de Bollinger
+  if (indicateurs.bollinger) {
+    const { upper, lower, middle } = calculerBollinger(prix, 20, 2);
+    datasets.push(
+      {
+        label: "Bollinger Sup",
+        data: upper,
+        borderColor: "rgba(130,200,130,0.8)",
+        borderWidth: 1,
+        borderDash: [4, 3],
+        pointRadius: 0,
+        fill: false,
+        order: 1
+      },
+      {
+        label: "Bollinger Moy",
+        data: middle,
+        borderColor: "rgba(130,200,130,0.5)",
+        borderWidth: 1,
+        pointRadius: 0,
+        fill: false,
+        order: 1
+      },
+      {
+        label: "Bollinger Inf",
+        data: lower,
+        borderColor: "rgba(130,200,130,0.8)",
+        borderWidth: 1,
+        borderDash: [4, 3],
+        pointRadius: 0,
+        backgroundColor: "rgba(130,200,130,0.05)",
+        fill: "-1",
+        order: 1
+      }
+    );
+  }
 
-    if (monGraphique) { monGraphique.destroy(); monGraphique = null; }
+  // -- GRAPHIQUE PRIX --
+  if (graphPrix) { graphPrix.destroy(); graphPrix = null; }
 
-    monGraphique = new Chart(document.getElementById("monGraphique"), {
+  graphPrix = new Chart(document.getElementById("graphPrix"), {
+    type: "line",
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: {
+          display: indicateurs.bollinger || indicateurs.mm,
+          labels: { color: couleurTexte, boxWidth: 12, font: { size: 11 } }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => ctx.dataset.label + " : " +
+              (ctx.parsed.y !== null
+                ? ctx.parsed.y.toLocaleString("fr-FR", { minimumFractionDigits: 2 })
+                : "--")
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: couleurTexte, maxTicksLimit: 8, maxRotation: 0 },
+          grid:  { color: couleurGrille }
+        },
+        y: {
+          ticks: { color: couleurTexte, callback: v => v.toLocaleString("fr-FR") },
+          grid:  { color: couleurGrille }
+        }
+      }
+    }
+  });
+
+  // -- GRAPHIQUE STOCH RSI --
+  if (graphStoch) { graphStoch.destroy(); graphStoch = null; }
+
+  if (indicateurs.stoch) {
+    const { k, d } = calculerStochRSI(prix, 14, 3, 3);
+
+    graphStoch = new Chart(document.getElementById("graphStoch"), {
       type: "line",
       data: {
         labels,
-        datasets: [{
-          label: ticker.nom,
-          data: prix,
-          borderColor: "#3d8ef8",
-          backgroundColor: "rgba(61,142,248,0.08)",
-          borderWidth: 2,
-          pointRadius: 0,
-          tension: 0.3,
-          fill: true
-        }]
+        datasets: [
+          {
+            label: "%K",
+            data: k,
+            borderColor: "#3d8ef8",
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension: 0.3,
+            fill: false
+          },
+          {
+            label: "%D",
+            data: d,
+            borderColor: "#f5a623",
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension: 0.3,
+            fill: false
+          }
+        ]
       },
       options: {
         responsive: true,
         interaction: { mode: "index", intersect: false },
         plugins: {
-          legend: { display: false },
+          legend: {
+            display: true,
+            labels: { color: couleurTexte, boxWidth: 12, font: { size: 10 } }
+          },
           tooltip: {
             callbacks: {
-              label: ctx => ctx.parsed.y !== null
-                ? ctx.parsed.y.toLocaleString("fr-FR", { minimumFractionDigits: 2 })
-                : ""
+              label: ctx => ctx.dataset.label + " : " +
+                (ctx.parsed.y !== null ? ctx.parsed.y.toFixed(2) : "--")
             }
-          }
+          },
+          annotation: {}
         },
         scales: {
           x: {
@@ -212,19 +369,102 @@ async function dessinerGraphique(ticker, echelle) {
             grid:  { color: couleurGrille }
           },
           y: {
-            ticks: { color: couleurTexte, callback: v => v.toLocaleString("fr-FR") },
-            grid:  { color: couleurGrille }
+            min: 0,
+            max: 100,
+            ticks: {
+              color: couleurTexte,
+              callback: v => v,
+              stepSize: 20
+            },
+            grid: { color: couleurGrille }
           }
         }
       }
     });
-  } catch (e) {
-    console.error("Erreur graphique :", e);
   }
 }
 
+// ============================================================
+// CALCULS INDICATEURS
+// ============================================================
+function calculerMM(data, periode) {
+  return data.map((_, i) => {
+    if (i < periode - 1) return null;
+    const slice = data.slice(i - periode + 1, i + 1).filter(v => v !== null);
+    if (slice.length < periode) return null;
+    return slice.reduce((a, b) => a + b, 0) / slice.length;
+  });
+}
+
+function calculerBollinger(data, periode, ecartType) {
+  const middle = calculerMM(data, periode);
+  const upper  = [];
+  const lower  = [];
+
+  data.forEach((_, i) => {
+    if (i < periode - 1) {
+      upper.push(null);
+      lower.push(null);
+      return;
+    }
+    const slice = data.slice(i - periode + 1, i + 1).filter(v => v !== null);
+    if (slice.length < periode) { upper.push(null); lower.push(null); return; }
+    const moy  = slice.reduce((a, b) => a + b, 0) / slice.length;
+    const variance = slice.reduce((a, b) => a + Math.pow(b - moy, 2), 0) / slice.length;
+    const std  = Math.sqrt(variance);
+    upper.push(moy + ecartType * std);
+    lower.push(moy - ecartType * std);
+  });
+
+  return { upper, lower, middle };
+}
+
+function calculerRSI(data, periode) {
+  const rsi = new Array(data.length).fill(null);
+  if (data.length < periode + 1) return rsi;
+
+  let gains = 0, pertes = 0;
+  for (let i = 1; i <= periode; i++) {
+    const diff = (data[i] ?? 0) - (data[i - 1] ?? 0);
+    if (diff > 0) gains += diff;
+    else pertes -= diff;
+  }
+
+  let avgGain = gains / periode;
+  let avgPerte = pertes / periode;
+  rsi[periode] = 100 - 100 / (1 + (avgPerte === 0 ? Infinity : avgGain / avgPerte));
+
+  for (let i = periode + 1; i < data.length; i++) {
+    if (data[i] === null || data[i - 1] === null) { rsi[i] = null; continue; }
+    const diff = data[i] - data[i - 1];
+    avgGain  = (avgGain  * (periode - 1) + Math.max(diff, 0)) / periode;
+    avgPerte = (avgPerte * (periode - 1) + Math.max(-diff, 0)) / periode;
+    rsi[i]   = 100 - 100 / (1 + (avgPerte === 0 ? Infinity : avgGain / avgPerte));
+  }
+
+  return rsi;
+}
+
+function calculerStochRSI(data, periodeRSI, periodeStoch, lissage) {
+  const rsi = calculerRSI(data, periodeRSI);
+  const stochK = new Array(rsi.length).fill(null);
+
+  for (let i = periodeStoch - 1; i < rsi.length; i++) {
+    const slice = rsi.slice(i - periodeStoch + 1, i + 1).filter(v => v !== null);
+    if (slice.length < periodeStoch) continue;
+    const minRSI = Math.min(...slice);
+    const maxRSI = Math.max(...slice);
+    stochK[i] = maxRSI === minRSI ? 0 : ((rsi[i] - minRSI) / (maxRSI - minRSI)) * 100;
+  }
+
+  const k = calculerMM(stochK.map(v => v ?? null), lissage);
+  const d = calculerMM(k.map(v => v ?? null), lissage);
+
+  return { k, d };
+}
+
 function mettreAJourCouleurGraphique() {
-  if (symboleActif) dessinerGraphique(symboleActif, echelleActuelle);
+  if (donneesActuelles) rendreGraphiques(donneesActuelles);
 }
 
 // ============================================================
@@ -239,7 +479,6 @@ async function chargerToutesLesActualites() {
 async function chargerFlux(sources, conteneurId) {
   const conteneur = document.getElementById(conteneurId);
   conteneur.innerHTML = "Chargement...";
-
   let articles = [];
 
   for (const source of sources) {
@@ -248,12 +487,7 @@ async function chargerFlux(sources, conteneurId) {
       const data = await resp.json();
       if (data.items) {
         data.items.slice(0, 8).forEach(item => {
-          articles.push({
-            titre:  item.title,
-            lien:   item.link,
-            date:   item.pubDate,
-            source: source.nom
-          });
+          articles.push({ titre: item.title, lien: item.link, date: item.pubDate, source: source.nom });
         });
       }
     } catch (e) {
@@ -271,17 +505,15 @@ async function chargerFlux(sources, conteneurId) {
   const visibles = articles.slice(0, 5);
   const cachees  = articles.slice(5);
 
-  const htmlVisibles = visibles.map(a => renderArticle(a)).join("");
-  const htmlCachees  = cachees.length > 0
-    ? `<div class="news-more" id="more-${conteneurId}" style="display:none">
-        ${cachees.map(a => renderArticle(a)).join("")}
-       </div>
-       <button class="btn-more" onclick="afficherPlus('${conteneurId}')">
-         ▼ Afficher plus (${cachees.length})
-       </button>`
-    : "";
-
-  conteneur.innerHTML = htmlVisibles + htmlCachees;
+  conteneur.innerHTML = visibles.map(a => renderArticle(a)).join("") +
+    (cachees.length > 0
+      ? `<div class="news-more" id="more-${conteneurId}" style="display:none">
+           ${cachees.map(a => renderArticle(a)).join("")}
+         </div>
+         <button class="btn-more" onclick="afficherPlus('${conteneurId}')">
+           ▼ Afficher plus (${cachees.length})
+         </button>`
+      : "");
 }
 
 function afficherPlus(conteneurId) {
@@ -292,8 +524,7 @@ function afficherPlus(conteneurId) {
     btn.textContent = "▲ Afficher moins";
   } else {
     more.style.display = "none";
-    const total = more.querySelectorAll(".news-item").length;
-    btn.textContent = `▼ Afficher plus (${total})`;
+    btn.textContent = `▼ Afficher plus (${more.querySelectorAll(".news-item").length})`;
   }
 }
 
@@ -303,8 +534,7 @@ function renderArticle(a) {
       <div class="news-source">${a.source}</div>
       <a class="news-titre" href="${a.lien}" target="_blank" rel="noopener">${a.titre}</a>
       <div class="news-date">${formaterDate(a.date)}</div>
-    </div>
-  `;
+    </div>`;
 }
 
 function formaterDate(dateStr) {
