@@ -6,8 +6,8 @@ let monGraphique = null;
 let symboleActif = null;
 let echelleActuelle = CONFIG.echelleParDefaut;
 
-const FINNHUB_BASE  = "https://finnhub.io/api/v1";
-const RSS_PROXY     = "https://api.rss2json.com/v1/api.json?rss_url=";
+const FINNHUB_BASE = "https://finnhub.io/api/v1";
+const RSS_PROXY    = "https://api.rss2json.com/v1/api.json?rss_url=";
 
 // ============================================================
 // INITIALISATION
@@ -45,7 +45,6 @@ async function chargerTousLesTickers() {
     ...CONFIG.actionsSurveiller
   ];
 
-  // Finnhub limite à 60 req/min - on espace légèrement les appels
   for (const t of toutes) {
     await chargerTicker(t);
     await pause(300);
@@ -62,11 +61,10 @@ function pause(ms) {
 
 async function chargerTicker(ticker) {
   try {
-    const url  = `${FINNHUB_BASE}/quote?symbol=${ticker.finnhub}&token=${CONFIG.finnhubKey}`;
+    const url  = `${FINNHUB_BASE}/quote?symbol=${ticker.symbole}&token=${CONFIG.finnhubKey}`;
     const resp = await fetch(url);
     const data = await resp.json();
 
-    // Finnhub retourne : c = prix actuel, pc = clôture précédente
     if (!data || data.c === 0) {
       afficherTicker(ticker, null, null);
       return;
@@ -118,7 +116,7 @@ function afficherTicker(ticker, prix, variation) {
 }
 
 // ============================================================
-// GRAPHIQUE - utilise Finnhub candles
+// GRAPHIQUE
 // ============================================================
 async function ouvrirGraphique(ticker) {
   symboleActif = ticker;
@@ -142,17 +140,17 @@ async function changerEchelle(echelle) {
 }
 
 function echelleVersParams(echelle) {
-  const now  = Math.floor(Date.now() / 1000);
-  const map  = {
-    "1J":  { resolution: "5",  from: now - 86400        },
-    "1S":  { resolution: "60", from: now - 7 * 86400    },
-    "1M":  { resolution: "D",  from: now - 30 * 86400   },
-    "3M":  { resolution: "D",  from: now - 90 * 86400   },
-    "6M":  { resolution: "W",  from: now - 180 * 86400  },
-    "1A":  { resolution: "W",  from: now - 365 * 86400  },
-    "5A":  { resolution: "M",  from: now - 5*365*86400  },
-    "10A": { resolution: "M",  from: now - 10*365*86400 },
-    "MAX": { resolution: "M",  from: now - 20*365*86400 }
+  const now = Math.floor(Date.now() / 1000);
+  const map = {
+    "1J":  { resolution: "5",  from: now - 86400         },
+    "1S":  { resolution: "60", from: now - 7 * 86400     },
+    "1M":  { resolution: "D",  from: now - 30 * 86400    },
+    "3M":  { resolution: "D",  from: now - 90 * 86400    },
+    "6M":  { resolution: "W",  from: now - 180 * 86400   },
+    "1A":  { resolution: "W",  from: now - 365 * 86400   },
+    "5A":  { resolution: "M",  from: now - 5*365*86400   },
+    "10A": { resolution: "M",  from: now - 10*365*86400  },
+    "MAX": { resolution: "M",  from: now - 20*365*86400  }
   };
   return { ...map[echelle], to: now };
 }
@@ -160,7 +158,7 @@ function echelleVersParams(echelle) {
 async function dessinerGraphique(ticker, echelle) {
   try {
     const { resolution, from, to } = echelleVersParams(echelle);
-    const url  = `${FINNHUB_BASE}/stock/candle?symbol=${ticker.finnhub}&resolution=${resolution}&from=${from}&to=${to}&token=${CONFIG.finnhubKey}`;
+    const url  = `${FINNHUB_BASE}/stock/candle?symbol=${ticker.symbole}&resolution=${resolution}&from=${from}&to=${to}&token=${CONFIG.finnhubKey}`;
     const resp = await fetch(url);
     const data = await resp.json();
 
