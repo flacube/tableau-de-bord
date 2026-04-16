@@ -1,304 +1,43 @@
-/* ============================================================
-   VARIABLES DE COULEURS - MODE SOMBRE (défaut)
-   ============================================================ */
-:root {
-  --bg-primary: #0f1117;
-  --bg-card: #1a1d2e;
-  --bg-card-hover: #22263a;
-  --text-primary: #e8eaf0;
-  --text-secondary: #8892a4;
-  --accent: #3d8ef8;
-  --accent-hover: #5aa3ff;
-  --positive: #26c281;
-  --negative: #e05c5c;
-  --border: #2a2d3e;
-  --shadow: rgba(0,0,0,0.4);
-  --btn-bg: #22263a;
-  --btn-active: #3d8ef8;
-}
-
-/* MODE CLAIR */
-body.light {
-  --bg-primary: #f0f2f7;
-  --bg-card: #ffffff;
-  --bg-card-hover: #f7f9fc;
-  --text-primary: #1a1d2e;
-  --text-secondary: #5a6478;
-  --accent: #2571e0;
-  --accent-hover: #1a5cc4;
-  --positive: #1a9e62;
-  --negative: #cc3333;
-  --border: #dde2ee;
-  --shadow: rgba(0,0,0,0.08);
-  --btn-bg: #e8eaf0;
-  --btn-active: #2571e0;
-}
-
-/* ============================================================
-   BASE
-   ============================================================ */
-* { box-sizing: border-box; margin: 0; padding: 0; }
-
-body {
-  font-family: 'Inter', 'Segoe UI', sans-serif;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  transition: background 0.3s, color 0.3s;
-  min-height: 100vh;
-}
-
-/* ============================================================
-   EN-TÊTE
-   ============================================================ */
-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 24px;
-  background: var(--bg-card);
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.logo {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: var(--accent);
-  letter-spacing: 0.5px;
-}
-
-.header-right {
+/* TOOLBAR INDICATEURS */
+.indicateurs-toolbar {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
+  margin-bottom: 14px;
   flex-wrap: wrap;
 }
 
-#lastUpdate {
-  font-size: 0.78rem;
+.toolbar-label {
+  font-size: 0.8rem;
   color: var(--text-secondary);
+  margin-right: 4px;
 }
 
-#toggleMode {
+.ind-btn {
   background: var(--btn-bg);
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-  padding: 7px 14px;
-  border-radius: 20px;
-  cursor: pointer;
-  font-size: 0.82rem;
-  transition: all 0.2s;
-}
-
-#toggleMode:hover { background: var(--accent); color: #fff; }
-
-/* ============================================================
-   MISE EN PAGE PRINCIPALE
-   ============================================================ */
-main {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 20px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-/* ============================================================
-   CARTES
-   ============================================================ */
-.card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 20px;
-  box-shadow: 0 2px 12px var(--shadow);
-  transition: background 0.3s;
-}
-
-.card h2 {
-  font-size: 1rem;
-  font-weight: 600;
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-bottom: 16px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--border);
-}
-
-/* ============================================================
-   GRILLE DES TICKERS
-   ============================================================ */
-.ticker-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 12px;
-}
-
-.ticker-item {
-  background: var(--bg-card-hover);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-align: center;
-}
-
-.ticker-item:hover {
-  border-color: var(--accent);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px var(--shadow);
-}
-
-.ticker-item.selected { border-color: var(--accent); background: rgba(61,142,248,0.1); }
-
-.ticker-nom {
-  font-size: 0.82rem;
-  color: var(--text-secondary);
-  margin-bottom: 6px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.ticker-prix {
-  font-size: 1.15rem;
-  font-weight: 700;
-  margin-bottom: 4px;
-}
-
-.ticker-variation {
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.positif { color: var(--positive); }
-.negatif { color: var(--negative); }
-.neutre  { color: var(--text-secondary); }
-
-/* ============================================================
-   GRAPHIQUE
-   ============================================================ */
-.graph-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 16px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--border);
-}
-
-.graph-header h2 {
-  margin: 0;
-  padding: 0;
-  border: none;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.echelles {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.echelles button {
-  background: var(--btn-bg);
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-  padding: 5px 10px;
-  border-radius: 6px;
+  padding: 5px 12px;
+  border-radius: 16px;
   cursor: pointer;
   font-size: 0.78rem;
   font-weight: 600;
   transition: all 0.2s;
 }
 
-.echelles button:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
-.echelles button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.ind-btn:hover { border-color: var(--accent); color: var(--accent); }
+.ind-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-#monGraphique { max-height: 350px; }
+/* CONTENEURS GRAPHIQUES */
+.graph-container { position: relative; width: 100%; }
+.graph-container canvas { max-height: 320px; }
+.stoch-container { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
+.stoch-container canvas { max-height: 140px; }
 
-/* ============================================================
-   ACTUALITÉS
-   ============================================================ */
-.news-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-}
-
-.news-list { display: flex; flex-direction: column; gap: 10px; }
-
-.news-item {
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.news-item:last-child { border-bottom: none; }
-
-.news-source {
-  font-size: 0.7rem;
-  color: var(--accent);
-  font-weight: 600;
-  text-transform: uppercase;
-  margin-bottom: 3px;
-}
-
-.news-titre {
-  font-size: 0.85rem;
-  color: var(--text-primary);
-  line-height: 1.4;
-  text-decoration: none;
-  display: block;
-}
-
-.news-titre:hover { color: var(--accent); }
-
-.news-date {
+.stoch-label {
   font-size: 0.72rem;
   color: var(--text-secondary);
-  margin-top: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 6px;
 }
-
-/* ============================================================
-   RESPONSIVE MOBILE
-   ============================================================ */
-@media (max-width: 768px) {
-  header { padding: 12px 16px; }
-  .logo { font-size: 1rem; }
-  main { padding: 12px 10px; gap: 14px; }
-  .news-grid { grid-template-columns: 1fr; }
-  .ticker-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
-  .echelles button { padding: 4px 8px; font-size: 0.72rem; }
-}
-
-@media (max-width: 480px) {
-  .ticker-grid { grid-template-columns: repeat(2, 1fr); }
-}
-
-/* BOUTON AFFICHER PLUS */
-.btn-more {
-  margin-top: 10px;
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--accent);
-  padding: 6px 14px;
-  border-radius: 20px;
-  cursor: pointer;
-  font-size: 0.8rem;
-  width: 100%;
-  transition: all 0.2s;
-}
-.btn-more:hover { background: var(--accent); color: #fff; }
