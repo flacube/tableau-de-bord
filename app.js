@@ -65,15 +65,39 @@ function toggleIndicateur(nom) {
 // CHARGEMENT DES TICKERS (trié par ordre alphabétique)
 // ============================================================
 async function chargerTousLesTickers() {
-  const indices  = [...CONFIG.indices].sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
-  const detenues = [...CONFIG.actionsDetenues].sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
+  const indices    = [...CONFIG.indices].sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
+  const detenues   = [...CONFIG.actionsDetenues].sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
   const surveiller = [...CONFIG.actionsSurveiller].sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
 
-  // Vider les grilles
+  // Vider les grilles avant de les remplir
   document.getElementById("indicesGrid").innerHTML    = "";
   document.getElementById("actionsDeteGrid").innerHTML = "";
   document.getElementById("actionsSurvGrid").innerHTML = "";
 
+  // Créer les tuiles vides dans le bon ordre d'abord
+  for (const ticker of [...indices, ...detenues, ...surveiller]) {
+    let conteneur = null;
+    if (CONFIG.indices.find(t => t.symbole === ticker.symbole))
+      conteneur = document.getElementById("indicesGrid");
+    else if (CONFIG.actionsDetenues.find(t => t.symbole === ticker.symbole))
+      conteneur = document.getElementById("actionsDeteGrid");
+    else
+      conteneur = document.getElementById("actionsSurvGrid");
+
+    const idSafe = "ticker-" + ticker.symbole.replace(/[^a-z0-9]/gi, "_");
+    const el = document.createElement("div");
+    el.className = "ticker-item";
+    el.id = idSafe;
+    el.onclick = () => ouvrirGraphique(ticker);
+    el.innerHTML = `
+      <div class="ticker-nom">${ticker.nom}</div>
+      <div class="ticker-prix neutre">--</div>
+      <div class="ticker-variation neutre">--</div>
+    `;
+    conteneur.appendChild(el);
+  }
+
+  // Charger les données en parallèle
   await Promise.all([
     ...indices.map(t => chargerTicker(t)),
     ...detenues.map(t => chargerTicker(t)),
@@ -84,7 +108,6 @@ async function chargerTousLesTickers() {
   document.getElementById("lastUpdate").textContent =
     "Dernière mise à jour : " + now.toLocaleTimeString("fr-FR");
 }
-
 async function chargerTicker(ticker) {
   try {
     const url  = `${CONFIG.apiUrl}?symbol=${ticker.symbole}&interval=1d&range=1d`;
