@@ -43,19 +43,19 @@ const CONFIG = {
   ],
 
   // -- FLUX RSS ACTUALITÉS --
-  flux: {
+flux: {
     economie: [
-      { nom: "Les Échos",    url: "https://feeds.lesechos.fr/rss/rss_finance.xml" },
-      { nom: "BFM Bourse",   url: "https://www.bfmtv.com/rss/economie/bourse/"    },
-      { nom: "Le Monde Éco", url: "https://www.lemonde.fr/economie/rss_full.xml"  }
+      { nom: "Le Monde Éco", url: "https://www.lemonde.fr/economie/rss_full.xml" },
+      { nom: "Les Échos",    url: "https://feeds.lesechos.fr/rss/rss_une.xml"    },
+      { nom: "BFM Business", url: "https://bfmbusiness.bfmtv.com/rss/info/flux-rss/flux-toutes-les-actualites/" }
     ],
     technologie: [
-      { nom: "01net",    url: "https://www.01net.com/feed/"    },
-      { nom: "Numerama", url: "https://www.numerama.com/feed/" }
+      { nom: "01net",        url: "https://www.01net.com/feed/"               },
+      { nom: "Numerama",     url: "https://www.numerama.com/feed/"            }
     ],
     ia: [
-      { nom: "L'Usine Digitale", url: "https://www.usine-digitale.fr/rss/all.xml" },
-      { nom: "Silicon.fr",       url: "https://www.silicon.fr/feed"               }
+      { nom: "Silicon.fr",   url: "https://www.silicon.fr/feed"              },
+      { nom: "Journal du Net", url: "https://www.journaldunet.com/intelligence-artificielle/rss/" }
     ]
   },
 
