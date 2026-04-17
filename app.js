@@ -388,30 +388,27 @@ function rendreGraphiques({ result, echelle }) {
 // CALCULS INDICATEURS
 // ============================================================
 function calculerMM(data, periode) {
-  return data.map((_, i) => {
-    if (i < periode - 1) return null;
-    const slice = data.slice(i - periode + 1, i + 1).filter(v => v !== null);
-    if (slice.length < periode) return null;
+  const propres = data.map(v => (v === null || isNaN(v)) ? null : v);
+  return propres.map((_, i) => {
+    const slice = propres.slice(Math.max(0, i - periode + 1), i + 1).filter(v => v !== null);
+    if (slice.length < Math.min(periode, i + 1)) return null;
+    if (slice.length === 0) return null;
     return slice.reduce((a, b) => a + b, 0) / slice.length;
   });
 }
 
 function calculerBollinger(data, periode, ecartType) {
-  const middle = calculerMM(data, periode);
-  const upper  = [];
-  const lower  = [];
+  const propres = data.map(v => (v === null || isNaN(v)) ? null : v);
+  const middle  = calculerMM(propres, periode);
+  const upper   = [];
+  const lower   = [];
 
-  data.forEach((_, i) => {
-    if (i < periode - 1) {
-      upper.push(null);
-      lower.push(null);
-      return;
-    }
-    const slice = data.slice(i - periode + 1, i + 1).filter(v => v !== null);
-    if (slice.length < periode) { upper.push(null); lower.push(null); return; }
-    const moy  = slice.reduce((a, b) => a + b, 0) / slice.length;
+  propres.forEach((_, i) => {
+    const slice = propres.slice(Math.max(0, i - periode + 1), i + 1).filter(v => v !== null);
+    if (slice.length < 2) { upper.push(null); lower.push(null); return; }
+    const moy      = slice.reduce((a, b) => a + b, 0) / slice.length;
     const variance = slice.reduce((a, b) => a + Math.pow(b - moy, 2), 0) / slice.length;
-    const std  = Math.sqrt(variance);
+    const std      = Math.sqrt(variance);
     upper.push(moy + ecartType * std);
     lower.push(moy - ecartType * std);
   });
@@ -420,26 +417,30 @@ function calculerBollinger(data, periode, ecartType) {
 }
 
 function calculerRSI(data, periode) {
-  const rsi = new Array(data.length).fill(null);
-  if (data.length < periode + 1) return rsi;
+  const propres = data.map(v => (v === null || isNaN(v)) ? null : v);
+  const rsi     = new Array(propres.length).fill(null);
+  if (propres.length < periode + 1) return rsi;
 
   let gains = 0, pertes = 0;
-  for (let i = 1; i <= periode; i++) {
-    const diff = (data[i] ?? 0) - (data[i - 1] ?? 0);
-    if (diff > 0) gains += diff;
-    else pertes -= diff;
+  let compteur = 0;
+  for (let i = 1; i < propres.length && compteur < periode; i++) {
+    if (propres[i] === null || propres[i-1] === null) continue;
+    const diff = propres[i] - propres[i-1];
+    if (diff > 0) gains += diff; else pertes -= diff;
+    compteur++;
   }
 
-  let avgGain = gains / periode;
+  let avgGain  = gains / periode;
   let avgPerte = pertes / periode;
-  rsi[periode] = 100 - 100 / (1 + (avgPerte === 0 ? Infinity : avgGain / avgPerte));
+  let dernierIdx = periode;
+  rsi[dernierIdx] = 100 - 100 / (1 + (avgPerte === 0 ? Infinity : avgGain / avgPerte));
 
-  for (let i = periode + 1; i < data.length; i++) {
-    if (data[i] === null || data[i - 1] === null) { rsi[i] = null; continue; }
-    const diff = data[i] - data[i - 1];
-    avgGain  = (avgGain  * (periode - 1) + Math.max(diff, 0)) / periode;
-    avgPerte = (avgPerte * (periode - 1) + Math.max(-diff, 0)) / periode;
-    rsi[i]   = 100 - 100 / (1 + (avgPerte === 0 ? Infinity : avgGain / avgPerte));
+  for (let i = dernierIdx + 1; i < propres.length; i++) {
+    if (propres[i] === null || propres[i-1] === null) { rsi[i] = null; continue; }
+    const diff   = propres[i] - propres[i-1];
+    avgGain      = (avgGain  * (periode - 1) + Math.max(diff, 0))  / periode;
+    avgPerte     = (avgPerte * (periode - 1) + Math.max(-diff, 0)) / periode;
+    rsi[i]       = 100 - 100 / (1 + (avgPerte === 0 ? Infinity : avgGain / avgPerte));
   }
 
   return rsi;
